@@ -2,28 +2,46 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
 import Layout from './components/layout/Layout';
 
-// Auth pages
 import {
+  PortalLanding,
   SuperAdminLogin, TenantLogin, TenantRegister, MemberLogin, MemberRegister,
 } from './components/auth/LoginPages';
 
-// SuperAdmin pages
 import { SADashboard, SATenants, SAIncomePlans } from './components/superadmin/Pages';
 
-// Tenant pages
 import {
   TenantDashboard, TenantMembers, TenantProducts, TenantWithdrawals,
   TenantIncomeReports, TenantIncomePlan, TenantKYC, TenantSupport,
   TenantAnnouncements, TenantSettings,
 } from './components/tenant/Pages';
 
-// Member pages
 import {
   MemberDashboard, MemberNetwork, MemberIncome, MemberWalletPage,
   MemberBankAccounts, MemberShop, MemberOrders, MemberKYC,
   MemberNotifications, MemberSupport, MemberProfile,
 } from './components/member/Pages';
 
+// Redirect logged-in users to their dashboard; guests stay on the portal page
+const RootRoute = () => {
+  const { token, role } = useAuthStore();
+  if (!token) return <PortalLanding />;
+  if (role === 'superadmin') return <Navigate to="/superadmin/dashboard" replace />;
+  if (role === 'tenant')     return <Navigate to="/tenant/dashboard"     replace />;
+  if (role === 'member')     return <Navigate to="/member/dashboard"     replace />;
+  return <PortalLanding />;
+};
+
+// Redirect auth pages if already logged in
+const GuestRoute = ({ children, defaultRedirect }) => {
+  const { token, role } = useAuthStore();
+  if (!token) return children;
+  if (role === 'superadmin') return <Navigate to="/superadmin/dashboard" replace />;
+  if (role === 'tenant')     return <Navigate to="/tenant/dashboard"     replace />;
+  if (role === 'member')     return <Navigate to="/member/dashboard"     replace />;
+  return children;
+};
+
+// Protect dashboard routes — unauthenticated go to portal, wrong role goes to portal
 const ProtectedRoute = ({ children, requiredRole }) => {
   const { token, role } = useAuthStore();
   if (!token) return <Navigate to="/" replace />;
@@ -31,30 +49,23 @@ const ProtectedRoute = ({ children, requiredRole }) => {
   return children;
 };
 
-const RootRedirect = () => {
-  const { token, role } = useAuthStore();
-  if (!token) return <Navigate to="/superadmin/login" replace />;
-  if (role === 'superadmin') return <Navigate to="/superadmin/dashboard" replace />;
-  if (role === 'tenant') return <Navigate to="/tenant/dashboard" replace />;
-  if (role === 'member') return <Navigate to="/member/dashboard" replace />;
-  return <Navigate to="/superadmin/login" replace />;
-};
-
 export default function App() {
   return (
     <Routes>
-      {/* Root */}
-      <Route path="/" element={<RootRedirect />} />
+      {/* Portal — shows role-selection landing or redirects logged-in users */}
+      <Route path="/" element={<RootRoute />} />
 
-      {/* Auth */}
-      <Route path="/superadmin/login" element={<SuperAdminLogin />} />
-      <Route path="/tenant/login"     element={<TenantLogin />} />
-      <Route path="/tenant/register"  element={<TenantRegister />} />
-      <Route path="/member/login"     element={<MemberLogin />} />
-      <Route path="/member/register"  element={<MemberRegister />} />
+      {/* ── Auth (redirect away if already logged in) ─────── */}
+      <Route path="/superadmin/login"  element={<GuestRoute><SuperAdminLogin /></GuestRoute>} />
+      <Route path="/tenant/login"      element={<GuestRoute><TenantLogin /></GuestRoute>} />
+      <Route path="/tenant/register"   element={<GuestRoute><TenantRegister /></GuestRoute>} />
+      <Route path="/member/login"      element={<GuestRoute><MemberLogin /></GuestRoute>} />
+      <Route path="/member/register"   element={<GuestRoute><MemberRegister /></GuestRoute>} />
 
-      {/* SuperAdmin */}
-      <Route path="/superadmin" element={<ProtectedRoute requiredRole="superadmin"><Layout /></ProtectedRoute>}>
+      {/* ── Super Admin ───────────────────────────────────── */}
+      <Route path="/superadmin" element={
+        <ProtectedRoute requiredRole="superadmin"><Layout /></ProtectedRoute>
+      }>
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard"    element={<SADashboard />} />
         <Route path="tenants"      element={<SATenants />} />
@@ -62,8 +73,10 @@ export default function App() {
         <Route path="stats"        element={<SADashboard />} />
       </Route>
 
-      {/* Tenant */}
-      <Route path="/tenant" element={<ProtectedRoute requiredRole="tenant"><Layout /></ProtectedRoute>}>
+      {/* ── Tenant ───────────────────────────────────────── */}
+      <Route path="/tenant" element={
+        <ProtectedRoute requiredRole="tenant"><Layout /></ProtectedRoute>
+      }>
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard"      element={<TenantDashboard />} />
         <Route path="members"        element={<TenantMembers />} />
@@ -79,23 +92,25 @@ export default function App() {
         <Route path="branding"       element={<TenantSettings />} />
       </Route>
 
-      {/* Member */}
-      <Route path="/member" element={<ProtectedRoute requiredRole="member"><Layout /></ProtectedRoute>}>
+      {/* ── Member ───────────────────────────────────────── */}
+      <Route path="/member" element={
+        <ProtectedRoute requiredRole="member"><Layout /></ProtectedRoute>
+      }>
         <Route index element={<Navigate to="dashboard" replace />} />
-        <Route path="dashboard"    element={<MemberDashboard />} />
-        <Route path="network"      element={<MemberNetwork />} />
-        <Route path="income"       element={<MemberIncome />} />
-        <Route path="wallet"       element={<MemberWalletPage />} />
+        <Route path="dashboard"     element={<MemberDashboard />} />
+        <Route path="network"       element={<MemberNetwork />} />
+        <Route path="income"        element={<MemberIncome />} />
+        <Route path="wallet"        element={<MemberWalletPage />} />
         <Route path="bank-accounts" element={<MemberBankAccounts />} />
-        <Route path="shop"         element={<MemberShop />} />
-        <Route path="orders"       element={<MemberOrders />} />
-        <Route path="kyc"          element={<MemberKYC />} />
+        <Route path="shop"          element={<MemberShop />} />
+        <Route path="orders"        element={<MemberOrders />} />
+        <Route path="kyc"           element={<MemberKYC />} />
         <Route path="notifications" element={<MemberNotifications />} />
-        <Route path="support"      element={<MemberSupport />} />
-        <Route path="profile"      element={<MemberProfile />} />
+        <Route path="support"       element={<MemberSupport />} />
+        <Route path="profile"       element={<MemberProfile />} />
       </Route>
 
-      {/* 404 fallback */}
+      {/* 404 → back to portal */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
